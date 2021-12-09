@@ -1,0 +1,127 @@
+---
+title: "Differential gene expression"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(tidyverse)
+library(crosstalk)
+library(plotly)
+
+# Load data
+
+## 1. load Differentially expressed transcript
+
+DET_df <- read_csv("Differentially_Expressed_Transcripts_list.csv")
+
+DET_df <- DET_df %>% 
+  mutate(across(contains("log"), round, 3)) %>% 
+  mutate(logPVAL = -log10(FDR))
+
+
+Annotation <- read_csv("good_Blastp_TopHit.csv")
+Annotation <- Annotation %>% 
+  group_by(transcript) %>% 
+  slice(which.min(evalue))
+  
+
+## 2. bind both tables
+
+DET_annot <- DET_df %>% 
+  inner_join(select(Annotation, transcript, name), by = "transcript")
+
+
+## 3. Create shared data object
+sd <- SharedData$new(DET_annot, key = ~transcript)
+sd_df <- SharedData$new(DET_annot %>% 
+                          dplyr::select(name, transcript,logFC,Expression, contains("rep")), group = sd$groupName(), key = ~transcript)
+
+sd_long <- SharedData$new(DET_annot %>% 
+                          dplyr::select(transcript, contains("rep")) %>% 
+                          tidyr::pivot_longer(-transcript, names_to = "sample", values_to = "count") %>% 
+                            dplyr::mutate(count = log2(count + 1)), group = sd$groupName(), key = ~transcript )
+```
+
+
+Inputs {.sidebar}
+-----------------------------------------------------------------------
+
+```{r}
+filter_slider("logFC", "log2 Fold Change", sd_df, ~logFC, round = TRUE, min = -9, max = 10)
+filter_checkbox("Expression", "Expression", sd_df, ~Expression, inline = TRUE)
+
+```
+
+---
+
+**Dashboard de prueba**
+
+Seleccione un un gen del gráfico de volcan o de la tabla para visualizar los valores de abundancia entre las muestras.
+
+Para resetar la selección, haga doble _click_ en cualquier gráfico
+
+
+
+
+This [R Markdown](http://rmarkdown.rstudio.com/) document uses the experimental [crosstalk](https://github.com/rstudio/crosstalk) R package to enable interactivity between different widgets that display the same data.
+
+
+Miguel A. Tripp-Valdez
+
+
+Row {data-height=600}
+-------------------------------------
+
+### Volcano plot
+
+```{r}
+
+# library(d3scatter)
+# d3scatter(sd, x = ~logFC, y = ~logPVAL, color = ~Expression, x_label = "logFC", y_label = "PVAL")
+
+plot_ly(data=sd, x=~logFC, y=~logPVAL, color = ~Expression,
+          type = "scatter", mode = "markers",
+          # hover text
+          text = ~paste("name:", name)
+          )  %>% add_markers() %>% highlight("plotly_click")
+
+
+```
+
+
+### info table
+
+```{r}
+library(DT)
+datatable(sd_df, rownames = FALSE, extensions = 'Scroller', 
+          options = list(scrollY = 200, scrollX = TRUE, scroller = TRUE, columnDefs = list(list(className = 'dt-left', targets = "ALL"))))
+```
+
+
+Row {data-height=550}
+-------------------------------------
+
+### Abundance data
+```{r}
+# color pallete
+pal <- viridis::plasma(6)
+
+
+ # plot_ly(data=sd_long, x=~sample, y=~count, color = ~sample,
+ #          type = "scatter", mode = "markers", colors = pal,
+ #          # hover text
+ #          text = ~paste("count:", count,'<br>name:', transcript)
+ #          ) %>% add_markers() %>% highlight("plotly_click")
+
+plot_ly() %>% 
+  add_trace(data=sd_long, x = ~sample, y = ~count, type="scatter", mode="lines+markers",
+            line = list(color = 'rgb(191,191,191)', width = 2, dash = 'dash'),
+            text = ~paste("count:", count,'<br>name:', transcript)) %>% 
+            layout(yaxis = list (title = 'Abundance in log2(CPM + 1)')) 
+
+```
+

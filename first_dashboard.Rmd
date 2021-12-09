@@ -1,0 +1,49 @@
+---
+title: "Untitled"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: scroll
+---
+
+Monthly deaths from bronchitis, emphysema and asthma in the
+UK, 1974–1979 (Source: P. J. Diggle, 1990, Time Series: A
+Biostatistical Introduction. Oxford, table A.3)
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+```
+
+## Column {data-width="650"}
+
+### Chart A
+
+```{r}
+plot(cars)
+```
+
+## Column {data-width="350"}
+
+### Chart B
+
+```{r}
+plot(iris)
+```
+
+### Chart C
+Note that we specified the bPaginate = FALSE option. This is appropriate for smaller datasets where scrolling provides a comfortable way of navigating through the data.
+
+```{r}
+DT::datatable(mtcars, options = list(
+  bPaginate = FALSE
+))
+```
+
+### Spam per Day
+
+```{r}
+spam <- 5
+valueBox(spam, 
+         icon = "fa-trash",
+         color = ifelse(spam > 10, "warning", "primary"))
+```
